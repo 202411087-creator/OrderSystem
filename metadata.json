@@ -1,0 +1,5 @@
+{
+  "name": "Copy of SmartLine Order Manager",
+  "description": "An intelligent order management system that uses Gemini to parse LINE-style text messages into structured orders with automatic address and quantity detection.",
+  "requestFramePermissions": []
+}

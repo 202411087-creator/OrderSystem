@@ -40,8 +40,8 @@ export const PriceManager: React.FC<PriceManagerProps> = ({
       });
       setBatchText('');
       alert('菜價庫批量更新完成！');
-    } catch (e) {
-      alert('解析失敗，請檢查格式或網路連線。');
+    } catch (e: any) {
+      alert(`解析失敗: ${e.message || '請檢查格式或網路連線。'}`);
     } finally {
       setIsParsing(false);
     }
@@ -72,8 +72,8 @@ export const PriceManager: React.FC<PriceManagerProps> = ({
       });
       setBatchText('');
       alert('今日販售清單已更新！');
-    } catch (e) {
-      alert('解析失敗。');
+    } catch (e: any) {
+      alert(`解析失敗: ${e.message || '出錯了'}`);
     } finally {
       setIsParsing(false);
     }

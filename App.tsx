@@ -110,7 +110,9 @@ const App: React.FC = () => {
       setOrders(prev => [...newOrders, ...prev]);
       setChatMessages(prev => [...prev, { id: crypto.randomUUID(), text: `✅ 訂單已建立成功！總計 NT$${newOrders.reduce((s, o) => s + o.totalAmount, 0)}。您可以在「紀錄」標籤查看詳細內容。`, sender: 'bot', timestamp: Date.now() }]);
     } catch (e: any) {
-      setChatMessages(prev => [...prev, { id: crypto.randomUUID(), text: `❌ 解析失敗：${e.message || '請確認品項名稱是否正確。'}`, sender: 'bot', timestamp: Date.now() }]);
+      const errorMsg = e.message || '請確認品項名稱是否正確。';
+      setChatMessages(prev => [...prev, { id: crypto.randomUUID(), text: `❌ 解析失敗：${errorMsg}`, sender: 'bot', timestamp: Date.now() }]);
+      alert(`解析錯誤: ${errorMsg}`);
     } finally {
       setIsTyping(false);
     }

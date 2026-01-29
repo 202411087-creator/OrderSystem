@@ -49,7 +49,7 @@ const App: React.FC = () => {
       })));
       setChatMessages(dbChats as any);
     } catch (e) {
-      console.error("Sync failed", e);
+      console.error("同步失敗:", e);
     } finally {
       setIsSyncing(false);
       setIsLoading(false);
@@ -106,6 +106,8 @@ const App: React.FC = () => {
 
         const processedItems = filteredItems.map(item => ({
           ...item,
+          name: item.name,
+          quantity: item.quantity,
           price: item.price || findReferencePrice(item.name, res.region)
         }));
 
@@ -121,7 +123,7 @@ const App: React.FC = () => {
             currentUser.role === 'member' ? currentUser.username : (res.userName || '用戶'),
             finalAddress,
             finalRegion,
-            JSON.stringify(processedItems),
+            processedItems,
             totalAmount,
             text,
             Date.now(),
@@ -131,13 +133,13 @@ const App: React.FC = () => {
         );
 
         const itemsDetail = processedItems.map(i => `• ${i.name}: NT$${i.price} x ${i.quantity} = NT$${(i.price || 0) * i.quantity}`).join('\n');
-        const detailText = `✅ 訂單已建立成功！(雲端備份完成)\n\n【訂購明細】\n${itemsDetail}\n\n💰 總計金額: NT$${totalAmount}\n📍 配送地址: ${finalAddress}`;
+        const detailText = `✅ 訂單已建立成功！(已同步至 MongoDB)\n\n【訂購明細】\n${itemsDetail}\n\n💰 總計金額: NT$${totalAmount}\n📍 配送地址: ${finalAddress}`;
         await sqlite.run("INSERT INTO chat_messages", [crypto.randomUUID(), detailText, 'bot', Date.now()]);
       }
       await refreshData();
     } catch (e: any) {
       const errorMsg = e.message || '請確認品項名稱是否正確。';
-      await sqlite.run("INSERT INTO chat_messages", [crypto.randomUUID(), `❌ 解析失敗：${errorMsg}`, 'bot', Date.now()]);
+      await sqlite.run("INSERT INTO chat_messages", [crypto.randomUUID(), `❌ 處理失敗：${errorMsg}`, 'bot', Date.now()]);
       await refreshData();
     } finally {
       setIsTyping(false);
@@ -167,12 +169,11 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center space-y-4">
         <div className="w-12 h-12 border-4 border-green-100 border-t-green-600 rounded-full animate-spin"></div>
-        <p className="font-black text-gray-400 text-xs tracking-widest uppercase">Connecting to Cloud DB...</p>
+        <p className="font-black text-gray-400 text-xs tracking-widest uppercase">Initializing Cloud DB...</p>
       </div>
     );
   }
 
-  // 重要：當沒有 currentUser 時，顯示登入畫面
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center p-8">
@@ -182,7 +183,7 @@ const App: React.FC = () => {
               <ShoppingCart className="w-12 h-12 text-white" />
             </div>
             <h1 className="mt-8 text-4xl font-black text-gray-900 tracking-tighter">SmartLine</h1>
-            <p className="mt-2 text-gray-400 font-bold italic">Cloud Order Assistant</p>
+            <p className="mt-2 text-gray-400 font-bold italic">MongoDB Synchronized</p>
           </div>
 
           <div className="w-full space-y-6">
@@ -218,7 +219,7 @@ const App: React.FC = () => {
                   setAuthMode('login');
                 }
               } catch (err) {
-                alert('連線失敗，請檢查網路');
+                alert('MongoDB 連線錯誤，請確認環境變數 MONGODB_URI 設定正確。');
               } finally {
                 setIsLoading(false);
               }
@@ -229,7 +230,7 @@ const App: React.FC = () => {
                 <input type="text" placeholder="預設送貨地址 / 社區" className="w-full h-16 px-6 bg-gray-50 border-none rounded-[24px] font-bold outline-none focus:ring-2 focus:ring-green-500" value={loginForm.address} onChange={e => setLoginForm({...loginForm, address: e.target.value})} required />
               )}
               <button disabled={isLoading} className="w-full bg-[#00B900] text-white h-16 rounded-[24px] font-black text-lg shadow-xl shadow-green-100 tap-active disabled:opacity-50">
-                {isLoading ? '處理中...' : (authMode === 'login' ? '登入系統' : '註冊帳號')}
+                {isLoading ? '雲端驗證中...' : (authMode === 'login' ? '登入系統' : '註冊帳號')}
               </button>
             </form>
           </div>
@@ -272,7 +273,7 @@ const App: React.FC = () => {
             <div className="bg-white/95 backdrop-blur-md border-b border-gray-100 p-4 shadow-sm z-20">
               <div className="flex items-center gap-2 mb-3">
                 <Sparkles className="w-4 h-4 text-green-500" />
-                <h3 className="font-black text-gray-800 text-xs">今日雲端菜單 (橫滑查看)</h3>
+                <h3 className="font-black text-gray-800 text-xs">今日雲端菜單 (由 MongoDB 同步)</h3>
               </div>
               <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
                 {prices.filter(p => p.isAvailable).map(p => (
@@ -310,7 +311,7 @@ const App: React.FC = () => {
 
             <div className="bg-white/95 backdrop-blur-md p-3 border-t flex items-center gap-3 z-30 pb-[calc(12px+var(--safe-bottom)+64px)]">
               <div className="flex-1 bg-gray-100 rounded-[24px] px-5 py-2 border border-gray-200">
-                <input type="text" className="w-full bg-transparent border-none outline-none text-sm py-1 font-bold text-gray-700" placeholder="輸入訊息同步至雲端..." value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendChat()} />
+                <input type="text" className="w-full bg-transparent border-none outline-none text-sm py-1 font-bold text-gray-700" placeholder="輸入內容以同步至 MongoDB..." value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendChat()} />
               </div>
               <button onClick={handleSendChat} disabled={!chatInput.trim() || isTyping} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-md ${chatInput.trim() ? 'bg-[#00B900] text-white scale-110' : 'bg-gray-100 text-gray-300'}`}><Send className="w-4 h-4 fill-current" /></button>
             </div>
@@ -334,7 +335,7 @@ const App: React.FC = () => {
                 }} 
                 onToggleAvailable={async (id) => {
                   const p = prices.find(x => x.id === id);
-                  if (p) await sqlite.run("UPDATE prices", [p.isAvailable ? 0 : 1, id]);
+                  if (p) await sqlite.run("UPDATE prices isAvailable", [p.isAvailable ? 0 : 1, id]);
                   await refreshData();
                 }}
                 onUpdatePrice={async (id, val) => {
@@ -360,7 +361,7 @@ const App: React.FC = () => {
                           await refreshData();
                         } : undefined} 
                         onDelete={isAdmin ? async () => {
-                          if(confirm('確定要從雲端刪除此訂單？')) {
+                          if(confirm('確定要從雲端永久刪除？')) {
                             await sqlite.run("DELETE FROM orders", [order.id]);
                             await refreshData();
                           }
@@ -374,7 +375,7 @@ const App: React.FC = () => {
                   ) : (
                     <div className="py-20 text-center">
                       <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4"><List className="w-8 h-8 text-gray-200" /></div>
-                      <p className="text-gray-300 font-bold">雲端暫無符合的資料</p>
+                      <p className="text-gray-300 font-bold">雲端尚未有任何訂單</p>
                     </div>
                   )}
                 </div>
@@ -386,7 +387,7 @@ const App: React.FC = () => {
 
       <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-gray-100 flex items-center justify-around px-6 py-3 pb-[calc(12px+var(--safe-bottom))] z-40 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
         {[
-          { id: 'pending', icon: isAdmin ? MessageCircle : Home, label: isAdmin ? '訂單訊息' : '首頁聊天' },
+          { id: 'pending', icon: isAdmin ? MessageCircle : Home, label: isAdmin ? '訂單訊息' : '聊天與下單' },
           { id: 'completed', icon: CheckCircle, label: isAdmin ? '歷史紀錄' : '我的訂單' },
           ...(isAdmin ? [{ id: 'prices', icon: Tag, label: '菜價管理' }, { id: 'dashboard', icon: LayoutDashboard, label: '分析報表' }] : [])
         ].map(item => (

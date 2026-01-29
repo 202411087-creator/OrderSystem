@@ -1,26 +1,29 @@
 
-import { MongoClient, MongoClientOptions } from 'mongodb';
-import { attachDatabasePool } from '@vercel/functions';
+import { MongoClient } from "https://esm.sh/mongodb@6.12.0";
+import { attachDatabasePool } from "https://esm.sh/@vercel/functions";
 
 const uri = process.env.MONGODB_URI || "";
-const options = {};
+
+if (!uri) {
+  console.error("MONGODB_URI 尚未在環境變數中設定。");
+}
 
 let client: MongoClient;
 let clientPromise: Promise<MongoClient>;
 
-if (!process.env.MONGODB_URI) {
-  throw new Error("Please add your Mongo URI to .env.local");
+// 全域快取連線以優化效能
+if (!(global as any)._mongoClientPromise) {
+  client = new MongoClient(uri);
+  attachDatabasePool(client);
+  (global as any)._mongoClientPromise = client.connect();
 }
-
-client = new MongoClient(uri, options);
-// 依照 Vercel 提供的截圖建議，優化連線池管理
-attachDatabasePool(client);
-clientPromise = client.connect();
+clientPromise = (global as any)._mongoClientPromise;
 
 export default clientPromise;
 
 export async function getCollection(collectionName: string) {
   const client = await clientPromise;
-  const db = client.db("smartline");
+  // 使用 URI 中指定的資料庫，若未指定則預設為 smartline
+  const db = client.db(); 
   return db.collection(collectionName);
 }

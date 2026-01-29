@@ -1,6 +1,6 @@
 
-import { MongoClient } from "https://esm.sh/mongodb@6.12.0";
-import { attachDatabasePool } from "https://esm.sh/@vercel/functions";
+import { MongoClient } from "mongodb";
+import { attachDatabasePool } from "@vercel/functions";
 
 const uri = process.env.MONGODB_URI || "";
 

@@ -53,9 +53,12 @@ export const OrderCard: React.FC<OrderCardProps> = ({ order, onToggleStatus, onD
 
       <div className="space-y-1.5 mb-4">
         {order.items.map((item, idx) => (
-          <div key={idx} className="flex justify-between items-center text-xs px-1">
-            <span className="font-bold text-gray-700">{item.name} <span className="text-gray-300">x{item.quantity}</span></span>
-            <span className="font-black text-gray-400">NT${(item.price || 0) * item.quantity}</span>
+          <div key={idx} className="flex justify-between items-center text-xs px-1 border-b border-gray-50 pb-1.5 last:border-0 last:pb-0">
+            <div className="flex flex-col">
+               <span className="font-black text-gray-700">{item.name}</span>
+               <span className="text-[10px] font-bold text-gray-300">NT$ {item.price || 0} x {item.quantity}</span>
+            </div>
+            <span className="font-black text-gray-400">NT$ {(item.price || 0) * item.quantity}</span>
           </div>
         ))}
       </div>

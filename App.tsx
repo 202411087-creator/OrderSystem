@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, CheckCircle, Clock, Search, LayoutDashboard, Tag, MessageCircle, LogOut, Sparkles, User, Home, Send, Bot } from 'lucide-react';
+import { ShoppingCart, CheckCircle, Clock, Search, LayoutDashboard, Tag, MessageCircle, LogOut, Sparkles, User, Home, Send, Bot, List } from 'lucide-react';
 import { Order, ParsingResult, PriceRecord, UserProfile } from './types.ts';
 import { parseLineText } from './geminiService.ts';
 import { OrderCard } from './components/OrderCard.tsx';
@@ -107,12 +107,19 @@ const App: React.FC = () => {
           isFlagged: false
         };
       });
+
       setOrders(prev => [...newOrders, ...prev]);
-      setChatMessages(prev => [...prev, { id: crypto.randomUUID(), text: `✅ 訂單已建立成功！總計 NT$${newOrders.reduce((s, o) => s + o.totalAmount, 0)}。您可以在「紀錄」標籤查看詳細內容。`, sender: 'bot', timestamp: Date.now() }]);
+      
+      // 生成詳細的機器人回覆明細
+      const detailText = newOrders.map(order => {
+        const itemsDetail = order.items.map(i => `• ${i.name}: NT$${i.price} x ${i.quantity} = NT$${(i.price || 0) * i.quantity}`).join('\n');
+        return `✅ 訂單已建立成功！\n\n【訂購明細】\n${itemsDetail}\n\n💰 總計金額: NT$${order.totalAmount}\n📍 配送地址: ${order.address}\n\n您可以在「我的訂單」標籤查看詳細內容。`;
+      }).join('\n\n---\n\n');
+
+      setChatMessages(prev => [...prev, { id: crypto.randomUUID(), text: detailText, sender: 'bot', timestamp: Date.now() }]);
     } catch (e: any) {
       const errorMsg = e.message || '請確認品項名稱是否正確。';
       setChatMessages(prev => [...prev, { id: crypto.randomUUID(), text: `❌ 解析失敗：${errorMsg}`, sender: 'bot', timestamp: Date.now() }]);
-      alert(`解析錯誤: ${errorMsg}`);
     } finally {
       setIsTyping(false);
     }
@@ -130,9 +137,17 @@ const App: React.FC = () => {
   const filteredOrders = orders.filter(o => {
     const isOwner = isAdmin || o.userName === currentUser?.username;
     if (!isOwner) return false;
+    
     const matchesSearch = o.userName.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           o.address.toLowerCase().includes(searchTerm.toLowerCase());
+    
     if (activeTab === 'dashboard' || activeTab === 'prices') return true;
+    
+    // 會員模式下，在「我的訂單」頁面可以看到所有訂單（pending + completed）
+    if (!isAdmin && activeTab === 'completed') {
+      return matchesSearch;
+    }
+
     return matchesSearch && o.status === (activeTab === 'pending' ? 'pending' : 'completed');
   });
 
@@ -209,9 +224,8 @@ const App: React.FC = () => {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden relative">
         { !isAdmin && activeTab === 'pending' ? (
-          /* Member LINE Chat Interface - Corrected Layout */
+          /* Member LINE Chat Interface */
           <div className="flex-1 flex flex-col bg-[#7494C0] overflow-hidden relative">
-            {/* Top Menu Pinned Section */}
             <div className="bg-white/95 backdrop-blur-md border-b border-gray-100 p-4 shadow-sm z-20">
               <div className="flex items-center gap-2 mb-3">
                 <Sparkles className="w-4 h-4 text-green-500" />
@@ -231,7 +245,6 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            {/* Chat Messages - Adjusted bottom padding for input bar */}
             <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 space-y-6 no-scrollbar pb-20">
               {chatMessages.map((m) => (
                 <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'} items-end gap-2`}>
@@ -240,7 +253,7 @@ const App: React.FC = () => {
                       <Bot className="w-4 h-4 text-green-500" />
                     </div>
                   )}
-                  <div className={`max-w-[80%] px-4 py-3 rounded-[20px] text-sm shadow-sm relative ${
+                  <div className={`max-w-[80%] px-4 py-3 rounded-[20px] text-sm shadow-sm relative whitespace-pre-wrap ${
                     m.sender === 'user' 
                       ? 'bg-[#A0ED8D] text-gray-800 rounded-tr-none' 
                       : 'bg-white text-gray-800 rounded-tl-none'
@@ -265,7 +278,6 @@ const App: React.FC = () => {
               )}
             </div>
 
-            {/* Chat Input Bar - Moved to flex container bottom, not absolute relative to app-container */}
             <div className="bg-white/95 backdrop-blur-md p-3 border-t flex items-center gap-3 z-30 pb-[calc(12px+var(--safe-bottom)+64px)]">
               <div className="flex-1 bg-gray-100 rounded-[24px] px-5 py-2 border border-gray-200">
                 <input
@@ -287,7 +299,7 @@ const App: React.FC = () => {
             </div>
           </div>
         ) : (
-          /* Original Admin or Record Views */
+          /* Admin or Member Order Records View */
           <div className="flex-1 overflow-y-auto px-6 pt-4 no-scrollbar pb-24">
             {activeTab === 'dashboard' && isAdmin ? (
               <Stats orders={orders} />
@@ -308,25 +320,24 @@ const App: React.FC = () => {
               />
             ) : (
               <div className="space-y-6">
-                {/* Search Bar */}
                 <div className="relative">
                   <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input 
                     type="text" 
-                    placeholder="搜尋歷史紀錄..." 
+                    placeholder="搜尋紀錄..." 
                     className="w-full h-14 pl-12 pr-6 bg-white border border-gray-100 rounded-[20px] shadow-sm font-bold text-sm outline-none focus:ring-2 focus:ring-green-500"
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
                   />
                 </div>
 
-                {/* Orders List */}
                 <div className="grid grid-cols-1 gap-4 pb-8">
                   {filteredOrders.length > 0 ? (
                     filteredOrders.map(order => (
                       <OrderCard 
                         key={order.id} 
                         order={order} 
+                        // 僅管理員可以刪除與更改狀態
                         onToggleStatus={isAdmin ? () => setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: o.status === 'pending' ? 'completed' : 'pending' } : o)) : undefined} 
                         onDelete={isAdmin ? () => { if(confirm('刪除？')) setOrders(prev => prev.filter(o => o.id !== order.id)); } : undefined} 
                         onFlag={isAdmin ? () => setOrders(prev => prev.map(o => o.id === order.id ? { ...o, isFlagged: !o.isFlagged } : o)) : undefined}
@@ -335,7 +346,7 @@ const App: React.FC = () => {
                   ) : (
                     <div className="py-20 text-center">
                       <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Clock className="w-8 h-8 text-gray-200" />
+                        <List className="w-8 h-8 text-gray-200" />
                       </div>
                       <p className="text-gray-300 font-bold">目前暫無訂單資料</p>
                     </div>
@@ -351,7 +362,7 @@ const App: React.FC = () => {
       <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-gray-100 flex items-center justify-around px-6 py-3 pb-[calc(12px+var(--safe-bottom))] z-40 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
         {[
           { id: 'pending', icon: isAdmin ? MessageCircle : Home, label: isAdmin ? '訂單訊息' : '首頁聊天' },
-          { id: 'completed', icon: CheckCircle, label: '歷史紀錄' },
+          { id: 'completed', icon: CheckCircle, label: isAdmin ? '歷史紀錄' : '我的訂單' },
           ...(isAdmin ? [
             { id: 'prices', icon: Tag, label: '菜價管理' },
             { id: 'dashboard', icon: LayoutDashboard, label: '分析報表' }

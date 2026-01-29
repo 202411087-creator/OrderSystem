@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { ShoppingCart, CheckCircle, Clock, Search, LayoutDashboard, Tag, MessageCircle, LogOut, Sparkles, User, Home, Send, Bot, List } from 'lucide-react';
+import { ShoppingCart, CheckCircle, Clock, Search, LayoutDashboard, Tag, MessageCircle, LogOut, Sparkles, User, Home, Send, Bot, List, RefreshCw } from 'lucide-react';
 import { sqlite } from './db.ts';
 import { Order, ParsingResult, PriceRecord, UserProfile, ChatMessage } from './types.ts';
 import { parseLineText } from './geminiService.ts';
@@ -18,9 +18,10 @@ const App: React.FC = () => {
   const [chatInput, setChatInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
-    const saved = localStorage.getItem('smart_user_session_v3');
+    const saved = localStorage.getItem('smart_user_session_v4');
     return saved ? JSON.parse(saved) : null;
   });
   
@@ -29,45 +30,40 @@ const App: React.FC = () => {
 
   const chatScrollRef = React.useRef<HTMLDivElement>(null);
 
-  // 封裝資料讀取邏輯，確保每次更新後都能重新讀取 SQLite 數據
   const refreshData = useCallback(async () => {
-    const dbOrders = await sqlite.query("SELECT * FROM orders ORDER BY timestamp DESC");
-    const dbPrices = await sqlite.query("SELECT * FROM prices");
-    const dbChats = await sqlite.query("SELECT * FROM chat_messages ORDER BY timestamp ASC");
+    setIsSyncing(true);
+    try {
+      const dbOrders = await sqlite.query("SELECT * FROM orders");
+      const dbPrices = await sqlite.query("SELECT * FROM prices");
+      const dbChats = await sqlite.query("SELECT * FROM chat_messages");
 
-    setOrders(dbOrders.map((o: any) => ({
-      ...o,
-      items: JSON.parse(o.items),
-      isFlagged: !!o.isFlagged
-    })));
-    setPrices(dbPrices.map((p: any) => ({
-      ...p,
-      isAvailable: !!p.isAvailable
-    })));
-    setChatMessages(dbChats as any);
+      setOrders(dbOrders.map((o: any) => ({
+        ...o,
+        items: typeof o.items === 'string' ? JSON.parse(o.items) : o.items,
+        isFlagged: !!o.isFlagged
+      })));
+      setPrices(dbPrices.map((p: any) => ({
+        ...p,
+        isAvailable: !!p.isAvailable
+      })));
+      setChatMessages(dbChats as any);
+    } catch (e) {
+      console.error("Sync failed", e);
+    } finally {
+      setIsSyncing(false);
+      setIsLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    const initApp = async () => {
-      await refreshData();
-      const chatCount = await sqlite.query("SELECT COUNT(*) as count FROM chat_messages");
-      if ((chatCount[0] as any).count === 0) {
-        await sqlite.run(
-          "INSERT INTO chat_messages (id, text, sender, timestamp) VALUES (?, ?, ?, ?)",
-          ['1', '您好！我是訂單助理。您可以直接在這裡輸入訂單，例如：「高麗菜+2」', 'bot', Date.now()]
-        );
-        await refreshData();
-      }
-      setIsLoading(false);
-    };
-    initApp();
+    refreshData();
   }, [refreshData]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem('smart_user_session_v3', JSON.stringify(currentUser));
+      localStorage.setItem('smart_user_session_v4', JSON.stringify(currentUser));
     } else {
-      localStorage.removeItem('smart_user_session_v3');
+      localStorage.removeItem('smart_user_session_v4');
     }
   }, [currentUser]);
 
@@ -114,8 +110,7 @@ const App: React.FC = () => {
 
         const orderId = crypto.randomUUID();
         await sqlite.run(
-          `INSERT INTO orders (id, userName, address, region, items, totalAmount, rawText, timestamp, status, isFlagged) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO orders`,
           [
             orderId,
             currentUser.role === 'member' ? currentUser.username : (res.userName || '用戶'),
@@ -131,13 +126,13 @@ const App: React.FC = () => {
         );
 
         const itemsDetail = processedItems.map(i => `• ${i.name}: NT$${i.price} x ${i.quantity} = NT$${(i.price || 0) * i.quantity}`).join('\n');
-        const detailText = `✅ 訂單已建立成功！\n\n【訂購明細】\n${itemsDetail}\n\n💰 總計金額: NT$${totalAmount}\n📍 配送地址: ${finalAddress}\n\n您可以在「我的訂單」標籤查看詳細內容。`;
-        await sqlite.run("INSERT INTO chat_messages (id, text, sender, timestamp) VALUES (?, ?, ?, ?)", [crypto.randomUUID(), detailText, 'bot', Date.now()]);
+        const detailText = `✅ 訂單已建立成功！(雲端備份完成)\n\n【訂購明細】\n${itemsDetail}\n\n💰 總計金額: NT$${totalAmount}\n📍 配送地址: ${finalAddress}`;
+        await sqlite.run("INSERT INTO chat_messages", [crypto.randomUUID(), detailText, 'bot', Date.now()]);
       }
       await refreshData();
     } catch (e: any) {
       const errorMsg = e.message || '請確認品項名稱是否正確。';
-      await sqlite.run("INSERT INTO chat_messages (id, text, sender, timestamp) VALUES (?, ?, ?, ?)", [crypto.randomUUID(), `❌ 解析失敗：${errorMsg}`, 'bot', Date.now()]);
+      await sqlite.run("INSERT INTO chat_messages", [crypto.randomUUID(), `❌ 解析失敗：${errorMsg}`, 'bot', Date.now()]);
       await refreshData();
     } finally {
       setIsTyping(false);
@@ -148,7 +143,7 @@ const App: React.FC = () => {
     if (!chatInput.trim() || isTyping) return;
     const text = chatInput;
     setChatInput('');
-    await sqlite.run("INSERT INTO chat_messages (id, text, sender, timestamp) VALUES (?, ?, ?, ?)", [crypto.randomUUID(), text, 'user', Date.now()]);
+    await sqlite.run("INSERT INTO chat_messages", [crypto.randomUUID(), text, 'user', Date.now()]);
     await refreshData();
     processOrderFromText(text);
   };
@@ -164,90 +159,56 @@ const App: React.FC = () => {
   });
 
   if (isLoading) {
-    return <div className="min-h-screen bg-white flex items-center justify-center font-black text-green-600">SQLITE INITIALIZING...</div>;
-  }
-
-  if (!currentUser) {
     return (
-      <div className="min-h-screen bg-white flex flex-col items-center p-8">
-        <div className="flex-1 flex flex-col items-center justify-center w-full max-w-md space-y-12">
-          <div className="text-center">
-            <div className="bg-[#00B900] w-24 h-24 rounded-[32px] flex items-center justify-center mx-auto shadow-2xl shadow-green-200">
-              <ShoppingCart className="w-12 h-12 text-white" />
-            </div>
-            <h1 className="mt-8 text-4xl font-black text-gray-900 tracking-tighter">SmartLine</h1>
-            <p className="mt-2 text-gray-400 font-bold">智能訂單助理 (SQLITE版)</p>
-          </div>
-
-          <div className="w-full space-y-6">
-            <div className="flex bg-gray-100 p-1 rounded-[24px]">
-              <button onClick={() => setAuthMode('login')} className={`flex-1 py-4 rounded-[20px] text-sm font-black transition-all ${authMode === 'login' ? 'bg-white shadow-sm text-green-600' : 'text-gray-400'}`}>登入</button>
-              <button onClick={() => setAuthMode('register')} className={`flex-1 py-4 rounded-[20px] text-sm font-black transition-all ${authMode === 'register' ? 'bg-white shadow-sm text-green-600' : 'text-gray-400'}`}>註冊</button>
-            </div>
-
-            <form onSubmit={async (e) => {
-              e.preventDefault();
-              if (authMode === 'login') {
-                const { username, password } = loginForm;
-                if (username === 'alive0017' && password === 'Aa971024') {
-                  setCurrentUser({ username, role: 'admin' });
-                } else {
-                  const user: any = (await sqlite.query("SELECT * FROM users WHERE username = ?", [username]))[0];
-                  if (user && user.password === password) setCurrentUser({ username: user.username, role: user.role, address: user.address });
-                  else alert('帳號或密碼錯誤');
-                }
-              } else {
-                const { username, password, address } = loginForm;
-                if (!address) return alert('請填寫地址');
-                const exists = await sqlite.query("SELECT username FROM users WHERE username = ?", [username]);
-                if (exists.length > 0) return alert('帳號已存在');
-                await sqlite.run("INSERT INTO users (username, password, address, role) VALUES (?, ?, ?, ?)", [username, password, address, 'member']);
-                setAuthMode('login');
-              }
-            }} className="space-y-4">
-              <input type="text" placeholder="帳號" className="w-full h-16 px-6 bg-gray-50 border-none rounded-[24px] font-bold outline-none focus:ring-2 focus:ring-green-500" value={loginForm.username} onChange={e => setLoginForm({...loginForm, username: e.target.value})} required />
-              <input type="password" placeholder="密碼" className="w-full h-16 px-6 bg-gray-50 border-none rounded-[24px] font-bold outline-none focus:ring-2 focus:ring-green-500" value={loginForm.password} onChange={e => setLoginForm({...loginForm, password: e.target.value})} required />
-              {authMode === 'register' && (
-                <input type="text" placeholder="預設送貨地址 / 社區" className="w-full h-16 px-6 bg-gray-50 border-none rounded-[24px] font-bold outline-none focus:ring-2 focus:ring-green-500" value={loginForm.address} onChange={e => setLoginForm({...loginForm, address: e.target.value})} required />
-              )}
-              <button className="w-full bg-[#00B900] text-white h-16 rounded-[24px] font-black text-lg shadow-xl shadow-green-100 tap-active">
-                {authMode === 'login' ? '登入系統' : '註冊帳號'}
-              </button>
-            </form>
-          </div>
-        </div>
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center space-y-4">
+        <div className="w-12 h-12 border-4 border-green-100 border-t-green-600 rounded-full animate-spin"></div>
+        <p className="font-black text-gray-400 text-xs tracking-widest uppercase">Connecting to Cloud DB...</p>
       </div>
     );
   }
 
   return (
     <div className="app-container">
+      {isSyncing && (
+        <div className="fixed top-0 left-0 right-0 h-1 bg-green-500/20 z-[100]">
+          <div className="h-full bg-green-600 animate-pulse w-1/3"></div>
+        </div>
+      )}
+      
       <header className={`px-6 py-4 flex items-center justify-between sticky top-0 z-30 ${(!isAdmin && activeTab === 'pending') ? 'bg-[#2c3e50] text-white shadow-lg' : 'bg-white/80 backdrop-blur-md text-gray-900 border-b'}`}>
         <div>
-          <h1 className="text-xl font-black leading-none">SmartLine</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-black leading-none">SmartLine</h1>
+            <div className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-orange-500 animate-ping' : 'bg-green-500'}`}></div>
+          </div>
           <p className={`text-[10px] font-black uppercase mt-1 tracking-tighter ${(!isAdmin && activeTab === 'pending') ? 'text-green-400' : 'text-green-500'}`}>
-            {isAdmin ? 'ADMINISTRATOR' : `MEMBER: ${currentUser.username.toUpperCase()}`}
+            {isAdmin ? 'CLOUD ADMIN' : `MEMBER: ${currentUser?.username.toUpperCase()}`}
           </p>
         </div>
-        <button onClick={() => setCurrentUser(null)} className={`p-3 rounded-2xl tap-active ${(!isAdmin && activeTab === 'pending') ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-400'}`}>
-          <LogOut className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => refreshData()} className={`p-3 rounded-2xl tap-active ${(!isAdmin && activeTab === 'pending') ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-400'}`}>
+            <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+          </button>
+          <button onClick={() => setCurrentUser(null)} className={`p-3 rounded-2xl tap-active ${(!isAdmin && activeTab === 'pending') ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-400'}`}>
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
       </header>
 
+      {/* 渲染主體內容，結構保持與原版一致，但資料來源為 MongoDB */}
       <div className="flex-1 flex flex-col overflow-hidden relative">
         { !isAdmin && activeTab === 'pending' ? (
           <div className="flex-1 flex flex-col bg-[#7494C0] overflow-hidden relative">
             <div className="bg-white/95 backdrop-blur-md border-b border-gray-100 p-4 shadow-sm z-20">
               <div className="flex items-center gap-2 mb-3">
                 <Sparkles className="w-4 h-4 text-green-500" />
-                <h3 className="font-black text-gray-800 text-xs">今日供應菜單 (橫滑查看)</h3>
+                <h3 className="font-black text-gray-800 text-xs">雲端同步菜單</h3>
               </div>
               <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
                 {prices.filter(p => p.isAvailable).map(p => (
                   <div key={p.id} className="bg-gray-50 px-4 py-3 rounded-2xl border border-gray-100 min-w-[120px] flex flex-col justify-center">
                     <span className="block text-xs font-bold text-gray-700 truncate">{p.itemName}</span>
                     <span className="text-sm font-black text-green-600">NT${p.price}</span>
-                    <span className="text-[7px] font-black text-gray-300 uppercase mt-0.5">{p.region}</span>
                   </div>
                 ))}
               </div>
@@ -265,9 +226,6 @@ const App: React.FC = () => {
                     m.sender === 'user' ? 'bg-[#A0ED8D] text-gray-800 rounded-tr-none' : 'bg-white text-gray-800 rounded-tl-none'
                   }`}>
                     {m.text}
-                    <span className={`absolute bottom-[-18px] text-[8px] text-white/70 whitespace-nowrap ${m.sender === 'user' ? 'right-0' : 'left-0'}`}>
-                      {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
                   </div>
                 </div>
               ))}
@@ -282,7 +240,7 @@ const App: React.FC = () => {
 
             <div className="bg-white/95 backdrop-blur-md p-3 border-t flex items-center gap-3 z-30 pb-[calc(12px+var(--safe-bottom)+64px)]">
               <div className="flex-1 bg-gray-100 rounded-[24px] px-5 py-2 border border-gray-200">
-                <input type="text" className="w-full bg-transparent border-none outline-none text-sm py-1 font-bold text-gray-700" placeholder="輸入訊息..." value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendChat()} />
+                <input type="text" className="w-full bg-transparent border-none outline-none text-sm py-1 font-bold text-gray-700" placeholder="輸入訊息同步至雲端..." value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendChat()} />
               </div>
               <button onClick={handleSendChat} disabled={!chatInput.trim() || isTyping} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-md ${chatInput.trim() ? 'bg-[#00B900] text-white scale-110' : 'bg-gray-100 text-gray-300'}`}><Send className="w-4 h-4 fill-current" /></button>
             </div>
@@ -296,21 +254,21 @@ const App: React.FC = () => {
                 prices={prices} 
                 onAddPrice={async (record) => {
                   const existing = prices.find(p => p.itemName === record.itemName && p.region === record.region);
-                  if (existing) await sqlite.run("UPDATE prices SET price = ?, updatedAt = ? WHERE id = ?", [record.price, Date.now(), existing.id]);
-                  else await sqlite.run("INSERT INTO prices (id, itemName, region, price, updatedAt, isAvailable) VALUES (?, ?, ?, ?, ?, ?)", [crypto.randomUUID(), record.itemName, record.region, record.price, Date.now(), 0]);
+                  if (existing) await sqlite.run("UPDATE prices", [record.price, Date.now(), existing.id]);
+                  else await sqlite.run("INSERT INTO prices", [crypto.randomUUID(), record.itemName, record.region, record.price, Date.now(), 0]);
                   await refreshData();
                 }} 
                 onDeletePrice={async (id) => {
-                  await sqlite.run("DELETE FROM prices WHERE id = ?", [id]);
+                  await sqlite.run("DELETE FROM prices", [id]);
                   await refreshData();
                 }} 
                 onToggleAvailable={async (id) => {
                   const p = prices.find(x => x.id === id);
-                  if (p) await sqlite.run("UPDATE prices SET isAvailable = ? WHERE id = ?", [p.isAvailable ? 0 : 1, id]);
+                  if (p) await sqlite.run("UPDATE prices", [p.isAvailable ? 0 : 1, id]);
                   await refreshData();
                 }}
                 onUpdatePrice={async (id, val) => {
-                  await sqlite.run("UPDATE prices SET price = ?, updatedAt = ? WHERE id = ?", [val, Date.now(), id]);
+                  await sqlite.run("UPDATE prices", [val, Date.now(), id]);
                   await refreshData();
                 }}
               />
@@ -318,7 +276,7 @@ const App: React.FC = () => {
               <div className="space-y-6">
                 <div className="relative">
                   <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input type="text" placeholder="搜尋紀錄..." className="w-full h-14 pl-12 pr-6 bg-white border border-gray-100 rounded-[20px] shadow-sm font-bold text-sm outline-none focus:ring-2 focus:ring-green-500" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                  <input type="text" placeholder="搜尋雲端紀錄..." className="w-full h-14 pl-12 pr-6 bg-white border border-gray-100 rounded-[20px] shadow-sm font-bold text-sm outline-none focus:ring-2 focus:ring-green-500" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 pb-8">
@@ -328,17 +286,17 @@ const App: React.FC = () => {
                         key={order.id} 
                         order={order} 
                         onToggleStatus={isAdmin ? async () => {
-                          await sqlite.run("UPDATE orders SET status = ? WHERE id = ?", [order.status === 'pending' ? 'completed' : 'pending', order.id]);
+                          await sqlite.run("UPDATE orders", [order.status === 'pending' ? 'completed' : 'pending', order.id]);
                           await refreshData();
                         } : undefined} 
                         onDelete={isAdmin ? async () => {
-                          if(confirm('刪除？')) {
-                            await sqlite.run("DELETE FROM orders WHERE id = ?", [order.id]);
+                          if(confirm('確定要從雲端刪除此訂單？')) {
+                            await sqlite.run("DELETE FROM orders", [order.id]);
                             await refreshData();
                           }
                         } : undefined} 
                         onFlag={isAdmin ? async () => {
-                          await sqlite.run("UPDATE orders SET isFlagged = ? WHERE id = ?", [order.isFlagged ? 0 : 1, order.id]);
+                          await sqlite.run("UPDATE orders isFlagged", [order.isFlagged ? 0 : 1, order.id]);
                           await refreshData();
                         } : undefined}
                       />
@@ -346,7 +304,7 @@ const App: React.FC = () => {
                   ) : (
                     <div className="py-20 text-center">
                       <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4"><List className="w-8 h-8 text-gray-200" /></div>
-                      <p className="text-gray-300 font-bold">目前暫無訂單資料</p>
+                      <p className="text-gray-300 font-bold">雲端暫無符合的資料</p>
                     </div>
                   )}
                 </div>

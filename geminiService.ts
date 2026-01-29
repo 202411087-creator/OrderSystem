@@ -2,13 +2,8 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { ParsingResult, PriceRecord } from "./types.ts";
 
-const getAI = () => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey || apiKey === "") {
-    throw new Error("API Key 尚未設定。請在 Vercel 環境變數中設定 API_KEY 並重新部署。");
-  }
-  return new GoogleGenAI({ apiKey });
-};
+// 遵循官方規範：Always use new GoogleGenAI({apiKey: process.env.API_KEY});
+// 不要手動檢查或定義 process.env，由平台環境處理。
 
 const parsingSchema = {
   type: Type.OBJECT,
@@ -62,9 +57,9 @@ const priceSchema = {
 
 export const parseLineText = async (text: string): Promise<ParsingResult[]> => {
   try {
-    const ai = getAI();
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview", // 升級模型以獲得更強的邏輯解析
+      model: "gemini-3-pro-preview",
       contents: `請解析以下訂單文字，提取使用者名稱、地址、區域及品項數量：${text}`,
       config: {
         responseMimeType: "application/json",
@@ -81,7 +76,7 @@ export const parseLineText = async (text: string): Promise<ParsingResult[]> => {
 
 export const parsePriceText = async (text: string): Promise<Partial<PriceRecord>[]> => {
   try {
-    const ai = getAI();
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: "gemini-3-pro-preview",
       contents: `請從以下文字提取菜名、價格與地區（若無地區則預設為「全區」）：${text}`,

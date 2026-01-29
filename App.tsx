@@ -31,6 +31,7 @@ const App: React.FC = () => {
   const chatScrollRef = React.useRef<HTMLDivElement>(null);
 
   const refreshData = useCallback(async () => {
+    if (!currentUser) return;
     setIsSyncing(true);
     try {
       const dbOrders = await sqlite.query("SELECT * FROM orders");
@@ -53,11 +54,15 @@ const App: React.FC = () => {
       setIsSyncing(false);
       setIsLoading(false);
     }
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
-    refreshData();
-  }, [refreshData]);
+    if (currentUser) {
+      refreshData();
+    } else {
+      setIsLoading(false);
+    }
+  }, [currentUser, refreshData]);
 
   useEffect(() => {
     if (currentUser) {
@@ -167,6 +172,72 @@ const App: React.FC = () => {
     );
   }
 
+  // 重要：當沒有 currentUser 時，顯示登入畫面
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center p-8">
+        <div className="flex-1 flex flex-col items-center justify-center w-full max-w-md space-y-12">
+          <div className="text-center">
+            <div className="bg-[#00B900] w-24 h-24 rounded-[32px] flex items-center justify-center mx-auto shadow-2xl shadow-green-200">
+              <ShoppingCart className="w-12 h-12 text-white" />
+            </div>
+            <h1 className="mt-8 text-4xl font-black text-gray-900 tracking-tighter">SmartLine</h1>
+            <p className="mt-2 text-gray-400 font-bold italic">Cloud Order Assistant</p>
+          </div>
+
+          <div className="w-full space-y-6">
+            <div className="flex bg-gray-100 p-1 rounded-[24px]">
+              <button onClick={() => setAuthMode('login')} className={`flex-1 py-4 rounded-[20px] text-sm font-black transition-all ${authMode === 'login' ? 'bg-white shadow-sm text-green-600' : 'text-gray-400'}`}>登入</button>
+              <button onClick={() => setAuthMode('register')} className={`flex-1 py-4 rounded-[20px] text-sm font-black transition-all ${authMode === 'register' ? 'bg-white shadow-sm text-green-600' : 'text-gray-400'}`}>註冊</button>
+            </div>
+
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              setIsLoading(true);
+              try {
+                if (authMode === 'login') {
+                  const { username, password } = loginForm;
+                  if (username === 'alive0017' && password === 'Aa971024') {
+                    setCurrentUser({ username, role: 'admin' });
+                  } else {
+                    const users = await sqlite.query("SELECT * FROM users WHERE username = ?", [username]);
+                    const user = users[0];
+                    if (user && user.password === password) {
+                      setCurrentUser({ username: user.username, role: user.role, address: user.address });
+                    } else {
+                      alert('帳號或密碼錯誤');
+                    }
+                  }
+                } else {
+                  const { username, password, address } = loginForm;
+                  if (!address) return alert('請填寫地址');
+                  const exists = await sqlite.query("SELECT username FROM users WHERE username = ?", [username]);
+                  if (exists.length > 0) return alert('帳號已存在');
+                  await sqlite.run("INSERT INTO users", [username, 'member', address, password]);
+                  alert('註冊成功，請登入');
+                  setAuthMode('login');
+                }
+              } catch (err) {
+                alert('連線失敗，請檢查網路');
+              } finally {
+                setIsLoading(false);
+              }
+            }} className="space-y-4">
+              <input type="text" placeholder="帳號" className="w-full h-16 px-6 bg-gray-50 border-none rounded-[24px] font-bold outline-none focus:ring-2 focus:ring-green-500" value={loginForm.username} onChange={e => setLoginForm({...loginForm, username: e.target.value})} required />
+              <input type="password" placeholder="密碼" className="w-full h-16 px-6 bg-gray-50 border-none rounded-[24px] font-bold outline-none focus:ring-2 focus:ring-green-500" value={loginForm.password} onChange={e => setLoginForm({...loginForm, password: e.target.value})} required />
+              {authMode === 'register' && (
+                <input type="text" placeholder="預設送貨地址 / 社區" className="w-full h-16 px-6 bg-gray-50 border-none rounded-[24px] font-bold outline-none focus:ring-2 focus:ring-green-500" value={loginForm.address} onChange={e => setLoginForm({...loginForm, address: e.target.value})} required />
+              )}
+              <button disabled={isLoading} className="w-full bg-[#00B900] text-white h-16 rounded-[24px] font-black text-lg shadow-xl shadow-green-100 tap-active disabled:opacity-50">
+                {isLoading ? '處理中...' : (authMode === 'login' ? '登入系統' : '註冊帳號')}
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-container">
       {isSyncing && (
@@ -182,7 +253,7 @@ const App: React.FC = () => {
             <div className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-orange-500 animate-ping' : 'bg-green-500'}`}></div>
           </div>
           <p className={`text-[10px] font-black uppercase mt-1 tracking-tighter ${(!isAdmin && activeTab === 'pending') ? 'text-green-400' : 'text-green-500'}`}>
-            {isAdmin ? 'CLOUD ADMIN' : `MEMBER: ${currentUser?.username.toUpperCase()}`}
+            {isAdmin ? 'CLOUD ADMIN' : `MEMBER: ${currentUser.username.toUpperCase()}`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -195,14 +266,13 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {/* 渲染主體內容，結構保持與原版一致，但資料來源為 MongoDB */}
       <div className="flex-1 flex flex-col overflow-hidden relative">
         { !isAdmin && activeTab === 'pending' ? (
           <div className="flex-1 flex flex-col bg-[#7494C0] overflow-hidden relative">
             <div className="bg-white/95 backdrop-blur-md border-b border-gray-100 p-4 shadow-sm z-20">
               <div className="flex items-center gap-2 mb-3">
                 <Sparkles className="w-4 h-4 text-green-500" />
-                <h3 className="font-black text-gray-800 text-xs">雲端同步菜單</h3>
+                <h3 className="font-black text-gray-800 text-xs">今日雲端菜單 (橫滑查看)</h3>
               </div>
               <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
                 {prices.filter(p => p.isAvailable).map(p => (

@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { ShoppingCart, CheckCircle, Clock, Search, LayoutDashboard, Tag, MessageCircle, LogOut, Sparkles, User, Home } from 'lucide-react';
-import { Order, ParsingResult, PriceRecord, UserProfile } from './types';
-import { parseLineText } from './geminiService';
-import { OrderCard } from './components/OrderCard';
-import { Stats } from './components/Stats';
-import { PriceManager } from './components/PriceManager';
-import { LineSimulator } from './components/LineSimulator';
+import { Order, ParsingResult, PriceRecord, UserProfile } from './types.ts';
+import { parseLineText } from './geminiService.ts';
+import { OrderCard } from './components/OrderCard.tsx';
+import { Stats } from './components/Stats.tsx';
+import { PriceManager } from './components/PriceManager.tsx';
+import { LineSimulator } from './components/LineSimulator.tsx';
 
 const App: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);

@@ -9,6 +9,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
+    <script>
+        // 防止 process.env 報錯
+        window.process = window.process || { env: { API_KEY: "" } };
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
@@ -19,14 +23,11 @@
         body {
             font-family: 'Inter', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
             background-color: #F8F9FA;
-            /* 禁止手機瀏覽器預設的點擊高亮 */
             -webkit-tap-highlight-color: transparent;
-            /* 禁止內容被選取 */
             -webkit-touch-callout: none;
             user-select: none;
-            /* 平滑捲動 */
             scroll-behavior: smooth;
-            overflow: hidden; /* 由 App 內層控制捲動 */
+            overflow: hidden;
             height: 100vh;
         }
         .app-container {
@@ -44,12 +45,10 @@
         .no-scrollbar::-webkit-scrollbar {
             display: none;
         }
-        /* 按鈕點擊縮放效果 */
         .tap-active:active {
             transform: scale(0.96);
             opacity: 0.8;
         }
-        /* 陰影優化 */
         .card-shadow {
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
         }
@@ -69,5 +68,6 @@
 </head>
 <body>
     <div id="root"></div>
+    <script type="module" src="./index.tsx"></script>
 </body>
 </html>

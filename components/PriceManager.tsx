@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
 import { Plus, Trash2, MapPin, Tag, Save, ListChecks, MessageSquarePlus, Sparkles, AlertCircle, ShoppingBag } from 'lucide-react';
-import { PriceRecord } from '../types';
-import { parsePriceText } from '../geminiService';
+import { PriceRecord } from '../types.ts';
+import { parsePriceText } from '../geminiService.ts';
 
 interface PriceManagerProps {
   prices: PriceRecord[];

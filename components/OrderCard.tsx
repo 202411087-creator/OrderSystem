@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { User, MapPin, Package, Check, Trash2, RotateCcw, Calendar, Bell, DollarSign } from 'lucide-react';
-import { Order } from '../types';
+import { Order } from '../types.ts';
 
 interface OrderCardProps {
   order: Order;

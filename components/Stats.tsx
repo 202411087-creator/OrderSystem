@@ -1,8 +1,7 @@
 
 import React, { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
-import { Order } from '../types';
-// Added CheckCircle and Clock to the imports from lucide-react
+import { Order } from '../types.ts';
 import { DollarSign, TrendingUp, Users, MapPin, CheckCircle, Clock } from 'lucide-react';
 
 interface StatsProps {

@@ -2,7 +2,14 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { ParsingResult, PriceRecord } from "./types.ts";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// 延遲初始化函數，確保在呼叫時才檢查 API Key，防止頂層崩潰
+const getAI = () => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    throw new Error("API Key 尚未設定。請在 Vercel 環境變數中設定 API_KEY。");
+  }
+  return new GoogleGenAI({ apiKey });
+};
 
 const parsingSchema = {
   type: Type.OBJECT,
@@ -56,6 +63,7 @@ const priceSchema = {
 
 export const parseLineText = async (text: string): Promise<ParsingResult[]> => {
   try {
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `解析訂單：${text}`,
@@ -67,12 +75,14 @@ export const parseLineText = async (text: string): Promise<ParsingResult[]> => {
     const result = JSON.parse(response.text.trim());
     return result.orders || [];
   } catch (error) {
+    console.error("Gemini Parsing Error:", error);
     throw error;
   }
 };
 
 export const parsePriceText = async (text: string): Promise<Partial<PriceRecord>[]> => {
   try {
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `請從以下文字提取菜名、價格與地區（若無地區則預設為「全區」）：${text}`,
@@ -84,6 +94,7 @@ export const parsePriceText = async (text: string): Promise<Partial<PriceRecord>
     const result = JSON.parse(response.text.trim());
     return result.prices || [];
   } catch (error) {
+    console.error("Gemini Price Parsing Error:", error);
     throw error;
   }
 };

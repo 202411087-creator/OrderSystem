@@ -10,8 +10,12 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
     <script>
-        // 防止 process.env 報錯
-        window.process = window.process || { env: { API_KEY: "" } };
+        // 更健全的 process polyfill，確保不會在部署時導致腳本崩潰
+        window.process = window.process || {};
+        window.process.env = window.process.env || {};
+        if (typeof window.process.env.API_KEY === 'undefined') {
+            window.process.env.API_KEY = "";
+        }
     </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">

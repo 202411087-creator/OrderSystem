@@ -3,14 +3,55 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>SmartLine 訂單整理系統</title>
+    <!-- 行動裝置 App 模擬標籤 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --safe-top: env(safe-area-inset-top);
+            --safe-bottom: env(safe-area-inset-bottom);
+        }
         body {
             font-family: 'Inter', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
-            background-color: #f9fafb;
+            background-color: #F8F9FA;
+            /* 禁止手機瀏覽器預設的點擊高亮 */
+            -webkit-tap-highlight-color: transparent;
+            /* 禁止內容被選取 */
+            -webkit-touch-callout: none;
+            user-select: none;
+            /* 平滑捲動 */
+            scroll-behavior: smooth;
+            overflow: hidden; /* 由 App 內層控制捲動 */
+            height: 100vh;
+        }
+        .app-container {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding-top: var(--safe-top);
+        }
+        .scroll-content {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: calc(80px + var(--safe-bottom));
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        /* 按鈕點擊縮放效果 */
+        .tap-active:active {
+            transform: scale(0.96);
+            opacity: 0.8;
+        }
+        /* 陰影優化 */
+        .card-shadow {
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
         }
     </style>
 <script type="importmap">

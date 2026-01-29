@@ -2,14 +2,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { ParsingResult, PriceRecord } from "./types.ts";
 
-const getApiKey = () => {
-  const key = process.env.API_KEY;
-  if (!key || key === "") {
-    throw new Error("API Key 尚未正確注入。請確認：\n1. Vercel 環境變數名稱為 API_KEY。\n2. 設定後務必在 Vercel 點擊 'Redeploy' 重新部署。\n3. 確認 API Key 是否已過期。");
-  }
-  return key;
-};
-
 const parsingSchema = {
   type: Type.OBJECT,
   properties: {
@@ -62,8 +54,8 @@ const priceSchema = {
 
 export const parseLineText = async (text: string): Promise<ParsingResult[]> => {
   try {
-    const apiKey = getApiKey();
-    const ai = new GoogleGenAI({ apiKey });
+    // 使用標準 process.env.API_KEY，將由 Vercel Build Command 指令進行字串替換
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `請解析以下訂單文字，提取使用者名稱、地址、區域及品項數量：${text}`,
@@ -82,8 +74,7 @@ export const parseLineText = async (text: string): Promise<ParsingResult[]> => {
 
 export const parsePriceText = async (text: string): Promise<Partial<PriceRecord>[]> => {
   try {
-    const apiKey = getApiKey();
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `請從以下文字提取菜名、價格與地區（若無地區則預設為「全區」）：${text}`,

@@ -194,159 +194,161 @@ const App: React.FC = () => {
   return (
     <div className="app-container">
       {/* Header */}
-      <header className={`px-6 py-4 flex items-center justify-between sticky top-0 z-30 ${(!isAdmin && activeTab === 'pending') ? 'bg-[#2c3e50] text-white' : 'bg-white/80 backdrop-blur-md text-gray-900'}`}>
+      <header className={`px-6 py-4 flex items-center justify-between sticky top-0 z-30 ${(!isAdmin && activeTab === 'pending') ? 'bg-[#2c3e50] text-white shadow-lg' : 'bg-white/80 backdrop-blur-md text-gray-900 border-b'}`}>
         <div>
           <h1 className="text-xl font-black leading-none">SmartLine</h1>
           <p className={`text-[10px] font-black uppercase mt-1 tracking-tighter ${(!isAdmin && activeTab === 'pending') ? 'text-green-400' : 'text-green-500'}`}>
             {isAdmin ? 'ADMINISTRATOR' : `MEMBER: ${currentUser.username.toUpperCase()}`}
           </p>
         </div>
-        <button onClick={() => setCurrentUser(null)} className="p-3 bg-white/10 rounded-2xl tap-active">
+        <button onClick={() => setCurrentUser(null)} className={`p-3 rounded-2xl tap-active ${(!isAdmin && activeTab === 'pending') ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-400'}`}>
           <LogOut className="w-5 h-5" />
         </button>
       </header>
 
       {/* Main Content Area */}
-      { !isAdmin && activeTab === 'pending' ? (
-        /* Member LINE Chat Interface */
-        <div className="flex-1 flex flex-col bg-[#7494C0] overflow-hidden relative">
-          {/* Top Menu Pinned Section */}
-          <div className="bg-white/95 backdrop-blur-md border-b border-gray-100 p-4 shadow-sm z-20">
-            <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="w-4 h-4 text-green-500" />
-              <h3 className="font-black text-gray-800 text-xs">今日供應菜單 (橫滑查看)</h3>
+      <div className="flex-1 flex flex-col overflow-hidden relative">
+        { !isAdmin && activeTab === 'pending' ? (
+          /* Member LINE Chat Interface - Corrected Layout */
+          <div className="flex-1 flex flex-col bg-[#7494C0] overflow-hidden relative">
+            {/* Top Menu Pinned Section */}
+            <div className="bg-white/95 backdrop-blur-md border-b border-gray-100 p-4 shadow-sm z-20">
+              <div className="flex items-center gap-2 mb-3">
+                <Sparkles className="w-4 h-4 text-green-500" />
+                <h3 className="font-black text-gray-800 text-xs">今日供應菜單 (橫滑查看)</h3>
+              </div>
+              <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
+                {prices.filter(p => p.isAvailable).map(p => (
+                  <div key={p.id} className="bg-gray-50 px-4 py-3 rounded-2xl border border-gray-100 min-w-[120px] flex flex-col justify-center">
+                    <span className="block text-xs font-bold text-gray-700 truncate">{p.itemName}</span>
+                    <span className="text-sm font-black text-green-600">NT${p.price}</span>
+                    <span className="text-[7px] font-black text-gray-300 uppercase mt-0.5">{p.region}</span>
+                  </div>
+                ))}
+                {prices.filter(p => p.isAvailable).length === 0 && (
+                  <div className="py-2 text-gray-400 text-xs font-bold italic">今日暫無販售項目</div>
+                )}
+              </div>
             </div>
-            <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
-              {prices.filter(p => p.isAvailable).map(p => (
-                <div key={p.id} className="bg-gray-50 px-4 py-3 rounded-2xl border border-gray-100 min-w-[120px] flex flex-col justify-center">
-                  <span className="block text-xs font-bold text-gray-700 truncate">{p.itemName}</span>
-                  <span className="text-sm font-black text-green-600">NT${p.price}</span>
-                  <span className="text-[7px] font-black text-gray-300 uppercase mt-0.5">{p.region}</span>
+
+            {/* Chat Messages - Adjusted bottom padding for input bar */}
+            <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 space-y-6 no-scrollbar pb-20">
+              {chatMessages.map((m) => (
+                <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'} items-end gap-2`}>
+                  {m.sender === 'bot' && (
+                    <div className="bg-white p-2 rounded-full mb-1 shadow-sm shrink-0">
+                      <Bot className="w-4 h-4 text-green-500" />
+                    </div>
+                  )}
+                  <div className={`max-w-[80%] px-4 py-3 rounded-[20px] text-sm shadow-sm relative ${
+                    m.sender === 'user' 
+                      ? 'bg-[#A0ED8D] text-gray-800 rounded-tr-none' 
+                      : 'bg-white text-gray-800 rounded-tl-none'
+                  }`}>
+                    {m.text}
+                    <span className={`absolute bottom-[-18px] text-[8px] text-white/70 whitespace-nowrap ${m.sender === 'user' ? 'right-0' : 'left-0'}`}>
+                      {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
                 </div>
               ))}
-              {prices.filter(p => p.isAvailable).length === 0 && (
-                <div className="py-2 text-gray-400 text-xs font-bold italic">今日暫無販售項目</div>
+              {isTyping && (
+                <div className="flex justify-start items-center gap-2">
+                  <div className="bg-white px-4 py-2 rounded-[20px] text-sm shadow-sm">
+                    <div className="flex gap-1">
+                      <div className="w-1 h-1 bg-gray-300 rounded-full animate-bounce"></div>
+                      <div className="w-1 h-1 bg-gray-300 rounded-full animate-bounce delay-75"></div>
+                      <div className="w-1 h-1 bg-gray-300 rounded-full animate-bounce delay-150"></div>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
-          </div>
 
-          {/* Chat Messages */}
-          <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 space-y-6 no-scrollbar pb-24">
-            {chatMessages.map((m) => (
-              <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'} items-end gap-2`}>
-                {m.sender === 'bot' && (
-                  <div className="bg-white p-2 rounded-full mb-1 shrink-0">
-                    <Bot className="w-4 h-4 text-gray-400" />
-                  </div>
-                )}
-                <div className={`max-w-[85%] px-4 py-3 rounded-[20px] text-sm shadow-sm relative ${
-                  m.sender === 'user' 
-                    ? 'bg-[#A0ED8D] text-gray-800 rounded-tr-none' 
-                    : 'bg-white text-gray-800 rounded-tl-none'
-                }`}>
-                  {m.text}
-                  <span className="absolute bottom-[-18px] text-[8px] text-white/60 whitespace-nowrap right-0">
-                    {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
+            {/* Chat Input Bar - Moved to flex container bottom, not absolute relative to app-container */}
+            <div className="bg-white/95 backdrop-blur-md p-3 border-t flex items-center gap-3 z-30 pb-[calc(12px+var(--safe-bottom)+64px)]">
+              <div className="flex-1 bg-gray-100 rounded-[24px] px-5 py-2 border border-gray-200">
+                <input
+                  type="text"
+                  className="w-full bg-transparent border-none outline-none text-sm py-1 font-bold text-gray-700"
+                  placeholder="輸入訊息..."
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
+                />
               </div>
-            ))}
-            {isTyping && (
-              <div className="flex justify-start items-center gap-2">
-                <div className="bg-white px-4 py-2 rounded-[20px] text-sm shadow-sm">
-                  <div className="flex gap-1">
-                    <div className="w-1 h-1 bg-gray-300 rounded-full animate-bounce"></div>
-                    <div className="w-1 h-1 bg-gray-300 rounded-full animate-bounce delay-75"></div>
-                    <div className="w-1 h-1 bg-gray-300 rounded-full animate-bounce delay-150"></div>
-                  </div>
+              <button 
+                onClick={handleSendChat}
+                disabled={!chatInput.trim() || isTyping}
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-md ${chatInput.trim() ? 'bg-[#00B900] text-white scale-110' : 'bg-gray-100 text-gray-300'}`}
+              >
+                <Send className="w-4 h-4 fill-current" />
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* Original Admin or Record Views */
+          <div className="flex-1 overflow-y-auto px-6 pt-4 no-scrollbar pb-24">
+            {activeTab === 'dashboard' && isAdmin ? (
+              <Stats orders={orders} />
+            ) : activeTab === 'prices' && isAdmin ? (
+              <PriceManager 
+                prices={prices} 
+                onAddPrice={(record) => {
+                  const existingIndex = prices.findIndex(p => p.itemName === record.itemName && p.region === record.region);
+                  if (existingIndex > -1) {
+                    setPrices(prev => prev.map((p, idx) => idx === existingIndex ? { ...p, price: record.price, updatedAt: Date.now() } : p));
+                  } else {
+                    setPrices(prev => [...prev, { ...record, id: crypto.randomUUID(), updatedAt: Date.now(), isAvailable: false }]);
+                  }
+                }} 
+                onDeletePrice={(id) => setPrices(prev => prev.filter(p => p.id !== id))} 
+                onToggleAvailable={(id) => setPrices(prev => prev.map(p => p.id === id ? { ...p, isAvailable: !p.isAvailable } : p))}
+                onUpdatePrice={(id, val) => setPrices(prev => prev.map(p => p.id === id ? { ...p, price: val, updatedAt: Date.now() } : p))}
+              />
+            ) : (
+              <div className="space-y-6">
+                {/* Search Bar */}
+                <div className="relative">
+                  <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input 
+                    type="text" 
+                    placeholder="搜尋歷史紀錄..." 
+                    className="w-full h-14 pl-12 pr-6 bg-white border border-gray-100 rounded-[20px] shadow-sm font-bold text-sm outline-none focus:ring-2 focus:ring-green-500"
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                  />
+                </div>
+
+                {/* Orders List */}
+                <div className="grid grid-cols-1 gap-4 pb-8">
+                  {filteredOrders.length > 0 ? (
+                    filteredOrders.map(order => (
+                      <OrderCard 
+                        key={order.id} 
+                        order={order} 
+                        onToggleStatus={isAdmin ? () => setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: o.status === 'pending' ? 'completed' : 'pending' } : o)) : undefined} 
+                        onDelete={isAdmin ? () => { if(confirm('刪除？')) setOrders(prev => prev.filter(o => o.id !== order.id)); } : undefined} 
+                        onFlag={isAdmin ? () => setOrders(prev => prev.map(o => o.id === order.id ? { ...o, isFlagged: !o.isFlagged } : o)) : undefined}
+                      />
+                    ))
+                  ) : (
+                    <div className="py-20 text-center">
+                      <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Clock className="w-8 h-8 text-gray-200" />
+                      </div>
+                      <p className="text-gray-300 font-bold">目前暫無訂單資料</p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
           </div>
-
-          {/* Chat Input Bar */}
-          <div className="absolute bottom-0 left-0 right-0 bg-white p-3 border-t flex items-center gap-3">
-            <div className="flex-1 bg-gray-100 rounded-[24px] px-5 py-2">
-              <input
-                type="text"
-                className="w-full bg-transparent border-none outline-none text-sm py-1 font-bold"
-                placeholder="請輸入訂單內容..."
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
-              />
-            </div>
-            <button 
-              onClick={handleSendChat}
-              disabled={!chatInput.trim() || isTyping}
-              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${chatInput.trim() ? 'bg-[#00B900] text-white shadow-lg' : 'bg-gray-100 text-gray-300'}`}
-            >
-              <Send className="w-4 h-4 fill-current" />
-            </button>
-          </div>
-        </div>
-      ) : (
-        /* Original Admin or Record Views */
-        <div className="scroll-content px-6 pt-4 no-scrollbar">
-          {activeTab === 'dashboard' && isAdmin ? (
-            <Stats orders={orders} />
-          ) : activeTab === 'prices' && isAdmin ? (
-            <PriceManager 
-              prices={prices} 
-              onAddPrice={(record) => {
-                const existingIndex = prices.findIndex(p => p.itemName === record.itemName && p.region === record.region);
-                if (existingIndex > -1) {
-                  setPrices(prev => prev.map((p, idx) => idx === existingIndex ? { ...p, price: record.price, updatedAt: Date.now() } : p));
-                } else {
-                  setPrices(prev => [...prev, { ...record, id: crypto.randomUUID(), updatedAt: Date.now(), isAvailable: false }]);
-                }
-              }} 
-              onDeletePrice={(id) => setPrices(prev => prev.filter(p => p.id !== id))} 
-              onToggleAvailable={(id) => setPrices(prev => prev.map(p => p.id === id ? { ...p, isAvailable: !p.isAvailable } : p))}
-              onUpdatePrice={(id, val) => setPrices(prev => prev.map(p => p.id === id ? { ...p, price: val, updatedAt: Date.now() } : p))}
-            />
-          ) : (
-            <div className="space-y-6">
-              {/* Search Bar */}
-              <div className="relative">
-                <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input 
-                  type="text" 
-                  placeholder="搜尋歷史紀錄..." 
-                  className="w-full h-14 pl-12 pr-6 bg-white border-none rounded-[20px] shadow-sm font-bold text-sm outline-none"
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                />
-              </div>
-
-              {/* Orders List */}
-              <div className="grid grid-cols-1 gap-4 pb-8">
-                {filteredOrders.length > 0 ? (
-                  filteredOrders.map(order => (
-                    <OrderCard 
-                      key={order.id} 
-                      order={order} 
-                      onToggleStatus={isAdmin ? () => setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: o.status === 'pending' ? 'completed' : 'pending' } : o)) : undefined} 
-                      onDelete={isAdmin ? () => { if(confirm('刪除？')) setOrders(prev => prev.filter(o => o.id !== order.id)); } : undefined} 
-                      onFlag={isAdmin ? () => setOrders(prev => prev.map(o => o.id === order.id ? { ...o, isFlagged: !o.isFlagged } : o)) : undefined}
-                    />
-                  ))
-                ) : (
-                  <div className="py-20 text-center">
-                    <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Clock className="w-8 h-8 text-gray-200" />
-                    </div>
-                    <p className="text-gray-300 font-bold">目前暫無訂單資料</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Bottom Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-100 flex items-center justify-around px-6 py-3 pb-[calc(12px+var(--safe-bottom))] z-40">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-gray-100 flex items-center justify-around px-6 py-3 pb-[calc(12px+var(--safe-bottom))] z-40 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
         {[
           { id: 'pending', icon: isAdmin ? MessageCircle : Home, label: isAdmin ? '訂單訊息' : '首頁聊天' },
           { id: 'completed', icon: CheckCircle, label: '歷史紀錄' },
@@ -358,7 +360,7 @@ const App: React.FC = () => {
           <button 
             key={item.id} 
             onClick={() => setActiveTab(item.id as any)}
-            className={`flex flex-col items-center gap-1 transition-all ${activeTab === item.id ? 'text-green-600 scale-110' : 'text-gray-300'}`}
+            className={`flex flex-col items-center gap-1 transition-all flex-1 py-1 ${activeTab === item.id ? 'text-green-600 scale-105' : 'text-gray-300 hover:text-gray-400'}`}
           >
             <item.icon className={`w-6 h-6 ${activeTab === item.id ? 'fill-green-50' : ''}`} />
             <span className="text-[10px] font-black">{item.label}</span>

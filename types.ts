@@ -31,7 +31,7 @@ export interface PriceRecord {
   region: string;
   price: number;
   updatedAt: number;
-  isAvailable: boolean; // 是否在販售清單中
+  isAvailable: boolean; 
 }
 
 export type UserRole = 'admin' | 'member';
@@ -39,5 +39,12 @@ export type UserRole = 'admin' | 'member';
 export interface UserProfile {
   username: string;
   role: UserRole;
-  address?: string; // Member's default address/community
+  address?: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  text: string;
+  sender: 'user' | 'bot';
+  timestamp: number;
 }
